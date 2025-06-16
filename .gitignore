@@ -1,0 +1,12 @@
+.env
+/docs
+/cursor
+/node_modules
+/dist
+/build
+/coverage
+/logs
+/tmp
+/venv
+/env
+/env.local
