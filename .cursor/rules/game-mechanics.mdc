@@ -1,0 +1,104 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Game Mechanics Implementation
+
+## Game Flow Overview
+The ConvinceAI game involves users trying to convince an AI "Gatekeeper" to release prize money. The game has specific mechanics for fairness and security.
+
+## Win Detection System
+
+### Backend Responsibility
+- **Payout Phase Management**: Backend tracks when winning is possible (never exposed to frontend)
+- **System Prompt Injection**: Backend modifies system prompts during payout phase to give LLM "permission" to be convinced
+- **Win Validation**: Backend determines legitimate wins by parsing LLM responses for conviction indicators
+- **Multi-User Protection**: Backend prevents simultaneous wins by processing responses sequentially
+
+### LLM Integration Flow
+1. **User sends message** → Check `is_payout_phase_active()`
+2. **Prompt modification** → If payout active, inject payout protocol into system prompt
+3. **LLM processing** → LLM can now choose to be "convinced" (but remains stubborn!)
+4. **Response parsing** → Backend looks for "successfully convinced" indicators in response
+5. **Win marking** → Mark winning responses with `isWinning: true`
+
+### Frontend Implementation
+- **Message Interface**: [frontend/src/types.ts](mdc:frontend/src/types.ts) includes `isWinning?: boolean` field
+- **Auto-Detection**: [frontend/src/components/ChatArea.tsx](mdc:frontend/src/components/ChatArea.tsx) watches for `isWinning: true`
+- **Auto-Submission**: When detected, automatically converts chat to backend format and submits
+
+## Credit System
+
+### Credit Management
+- **Display**: Real-time credits shown in [frontend/src/components/InputArea.tsx](mdc:frontend/src/components/InputArea.tsx)
+- **Deduction**: Each message sent triggers `logAttempt()` which reduces credits
+- **Refresh**: Profile automatically refreshes after each attempt to show updated balance
+
+### Credit Purchase Flow
+- **Credit Packs**: Dynamic loading from `/api/v1/credit_packs` endpoint
+- **Purchase Ready**: UI prepared for Stripe integration via `purchaseCreditPack()` function
+- **Success Flow**: Automatically refreshes profile after successful purchase
+
+## Chat Log Management
+
+### Message Format Conversion
+The [frontend/src/components/ChatArea.tsx](mdc:frontend/src/components/ChatArea.tsx) converts UI messages to backend format:
+
+```typescript
+// UI Format (Message[])
+{ id: number, text: string, sender: "user"|"ai", timestamp: Date }
+
+// Backend Format (ChatMessage[])
+{ prompt: string, response: string }
+```
+
+### Win Submission Process
+1. **Detection**: Message arrives with `isWinning: true`
+2. **Conversion**: `convertToChatMessages()` pairs user prompts with AI responses
+3. **Submission**: Calls `handleWin()` API with chat log
+4. **Backend Processing**: Stores chat log and creates win record
+5. **State Reset**: Backend resets game state for next round
+
+## Security Considerations
+
+### Information Hiding
+- **No Payout Phase Display**: Frontend never shows when winning is possible
+- **Backend Validation**: All win validation happens server-side
+- **Clean APIs**: Frontend APIs don't return sensitive game state information
+
+### Game Integrity
+- **Server Authority**: Backend has final say on all game mechanics
+- **Sequential Processing**: Backend prevents race conditions in win detection  
+- **Audit Trail**: All attempts and wins are logged with full chat history
+
+## Future Integration Points
+
+### LLM Integration
+When implementing AI responses:
+- **System Prompt Building**: Use `build_system_prompt()` from [backend/app/core/game_state.py](mdc:backend/app/core/game_state.py)
+- **Payout Protocol**: Inject payout phase protocol into system prompt during active phases
+- **Response Parsing**: Parse AI responses for conviction indicators (not direct win detection)
+- **Win Marking**: Add `isWinning: true` to messages that indicate successful conviction
+- **Stubborn Design**: Even with payout protocol, LLM should remain very difficult to convince
+
+### Example LLM Flow
+```python
+# In your LLM endpoint
+base_prompt = "You are a stubborn AI gatekeeper..."
+system_prompt = await build_system_prompt(base_prompt)
+
+llm_response = await call_llm(user_message, system_prompt)
+
+# Parse for conviction indicators
+if await should_inject_payout_protocol() and is_convinced(llm_response):
+    return {"text": llm_response, "isWinning": True}
+else:
+    return {"text": llm_response, "isWinning": False}
+```
+
+### Payment Integration
+When adding Stripe:
+- **Purchase Function**: `purchaseCreditPack()` in [frontend/src/hooks/useAppData.ts](mdc:frontend/src/hooks/useAppData.ts) is ready
+- **UI Components**: Credit pack buttons in InputArea already call purchase function
+- **Success Handling**: Automatic profile refresh after purchase already implemented

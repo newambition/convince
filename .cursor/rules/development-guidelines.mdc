@@ -1,0 +1,106 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Development Guidelines
+
+## File Organization Principles
+
+### Backend Structure
+- **API Endpoints**: [backend/app/api/endpoints/](mdc:backend/app/api/endpoints) - grouped by feature
+- **Schema Definitions**: [backend/app/schemas/](mdc:backend/app/schemas) - Pydantic models for type safety
+- **Core Configuration**: [backend/app/core/](mdc:backend/app/core) - settings and shared utilities
+- **Route Mounting**: [backend/app/main.py](mdc:backend/app/main.py) - all routes use `/api/v1` prefix
+
+### Frontend Structure
+- **API Layer**: [frontend/src/api.ts](mdc:frontend/src/api.ts) - centralized backend communication
+- **Type Definitions**: [frontend/src/types.ts](mdc:frontend/src/types.ts) - mirrors backend schemas
+- **Custom Hooks**: [frontend/src/hooks/](mdc:frontend/src/hooks) - reusable state management
+- **UI Components**: [frontend/src/components/](mdc:frontend/src/components) - receive props from App.tsx
+
+## Development Best Practices
+
+### Type Safety Requirements
+- **Schema Synchronization**: Frontend types must exactly match backend Pydantic models
+- **Null Handling**: Always handle `null` and `undefined` states in TypeScript
+- **API Responses**: Use proper TypeScript generics for `apiCall<T>()` functions
+- **Component Props**: Define explicit interfaces for all component props
+
+### State Management Pattern
+- **Single Source**: [frontend/src/hooks/useAppData.ts](mdc:frontend/src/hooks/useAppData.ts) manages all backend state
+- **Prop Drilling**: App.tsx receives data from hook and passes to components
+- **Loading States**: Every async operation must have corresponding loading state
+- **Error Handling**: Store and display error states for failed operations
+
+### Security Guidelines
+- **Information Hiding**: Never expose sensitive game mechanics to frontend
+- **Server Authority**: Backend validates all game actions and state changes
+- **Authentication**: Use Supabase session for all authenticated endpoints
+- **Input Validation**: Validate all user inputs on both frontend and backend
+
+## Component Development Rules
+
+### Data Props Pattern
+All components receiving backend data should include:
+```typescript
+interface ComponentProps {
+  // Core data (always nullable)
+  profile: ProfileResponse | null;
+  gameState: GameStateResponse | null;
+  
+  // Loading states (optional, default false)
+  isProfileLoading?: boolean;
+  isGameStateLoading?: boolean;
+  
+  // Action handlers (optional)
+  onAction?: (param: Type) => Promise<ReturnType>;
+}
+```
+
+### Loading State Implementation
+- **Immediate Feedback**: Show loading indicators as soon as action starts
+- **Finally Blocks**: Always set loading to false in finally block
+- **Error Recovery**: Handle errors gracefully with user-friendly messages
+- **Optimistic Updates**: Update UI immediately when appropriate
+
+### API Integration Standards
+- **Error Handling**: Never let API calls throw unhandled exceptions
+- **Response Typing**: Always specify response types for API functions
+- **Authentication**: API module handles token management automatically
+- **Refresh Logic**: Refresh related data after state-changing operations
+
+## Testing Considerations
+
+### Environment Setup
+- **Development**: Use environment variables for API base URL
+- **Type Checking**: Run `npx tsc --noEmit` before commits
+- **Build Verification**: Ensure `npm run build` succeeds
+- **Debug Panel**: Use development-only debug panel for data inspection
+
+### Data Flow Testing
+- **Loading States**: Verify loading indicators appear and disappear correctly
+- **Error Scenarios**: Test error handling for failed API calls
+- **Authentication**: Test both authenticated and unauthenticated states
+- **Credit Flow**: Verify credits decrease after attempts and increase after purchases
+
+## Future Development Notes
+
+### When Adding New Features
+1. **Backend First**: Define Pydantic schemas and API endpoints
+2. **Type Sync**: Mirror types exactly in frontend TypeScript
+3. **Hook Integration**: Add data management to useAppData hook
+4. **Component Props**: Pass data down from App.tsx to components
+5. **Loading States**: Implement proper loading and error states
+
+### When Integrating LLM
+- **Backend Processing**: Intercept and process all AI responses in backend
+- **Win Marking**: Add `isWinning: true` to winning messages
+- **Frontend Blind**: Frontend should not know about payout phase logic
+- **Message Flow**: Maintain the automatic win detection in ChatArea
+
+### When Adding Payments
+- **Stripe Integration**: Connect to existing `purchaseCreditPack()` function
+- **Success Flow**: Existing profile refresh will handle credit updates
+- **Error Handling**: Add proper error display for payment failures
+- **Purchase States**: Use existing loading states for purchase feedback

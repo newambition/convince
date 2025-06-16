@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import supabase
+from app.core.game_state import get_full_game_state, clear_game_state_cache
 from app.schemas.game import (
     HandleWinRequest, HandleWinResponse, LogAttemptResponse,
     GameStateResponse, ProfileResponse, CreditPackResponse, PurchaseResponse
@@ -20,11 +21,9 @@ router = APIRouter()
 async def get_game_state():
     """Fetches the current public state of the game."""
     try:
-        res = supabase.table('game_state').select(
-            "prizepool_amount, is_payout_phase_active"
-        ).single().execute()
-        
-        return GameStateResponse(**res.data)
+        # Use optimized game state function
+        game_state_data = await get_full_game_state()
+        return GameStateResponse(**game_state_data)
     except Exception as e:
         logger.error(f"Error fetching game state: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch game state.")
@@ -81,6 +80,9 @@ async def handle_win(win_request: HandleWinRequest, user=Depends(get_current_use
 
         # 4. Call the database function to reset the game state
         reset_res = supabase.rpc('handle_win', {}).execute()
+        
+        # 5. Clear game state cache after reset
+        await clear_game_state_cache()
         
         return HandleWinResponse(status="success", win_id=win_res.data[0]['id'])
 

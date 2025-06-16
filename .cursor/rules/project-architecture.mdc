@@ -1,0 +1,60 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ConvinceAI Game - Project Architecture
+
+## Overview
+This is a full-stack application with a FastAPI backend and React frontend. The game involves users trying to convince an AI "Gatekeeper" to win prize money.
+
+## Backend-Frontend Integration
+
+### API Integration Pattern
+- **Centralized API Module**: All backend communication goes through [frontend/src/api.ts](mdc:frontend/src/api.ts)
+- **Type Safety**: TypeScript interfaces in [frontend/src/types.ts](mdc:frontend/src/types.ts) exactly match backend Pydantic models in [backend/app/schemas/game.py](mdc:backend/app/schemas/game.py)
+- **API Base URL**: Uses `/api/v1` prefix for all endpoints as defined in [backend/app/main.py](mdc:backend/app/main.py)
+
+### Data Management Architecture
+- **Custom Hook**: [frontend/src/hooks/useAppData.ts](mdc:frontend/src/hooks/useAppData.ts) manages all backend data state
+- **Main App**: [frontend/src/App.tsx](mdc:frontend/src/App.tsx) uses the hook and passes data down to components
+- **State Categories**: Game state (public), Profile (authenticated), Credit packs (public)
+
+### Authentication Flow
+- **Supabase Integration**: Uses existing auth context from [frontend/src/auth/auth-context.js](mdc:frontend/src/auth/auth-context.js)
+- **Token Management**: Automatic token handling via Supabase session in API calls
+- **Conditional Data**: Profile data only fetches when authenticated
+
+## Component Data Integration
+
+### Header Component
+- **Location**: [frontend/src/components/header.tsx](mdc:frontend/src/components/header.tsx)
+- **Data**: Displays real prize pool amount and user avatar from backend
+- **Loading States**: Proper loading indicators for async data
+
+### InputArea Component  
+- **Location**: [frontend/src/components/InputArea.tsx](mdc:frontend/src/components/InputArea.tsx)
+- **Features**: Real-time credits display, dynamic credit packs from backend
+- **Purchase Flow**: Ready for Stripe integration via `onPurchaseCreditPack` prop
+
+### ChatArea Component
+- **Location**: [frontend/src/components/ChatArea.tsx](mdc:frontend/src/components/ChatArea.tsx)
+- **Win Detection**: Auto-detects messages marked with `isWinning: true`
+- **Message Conversion**: Converts UI messages to backend `ChatMessage[]` format
+
+## Game Mechanics Integration
+
+### Attempt Logging
+- **Trigger**: Every message sent calls `logAttempt()` API
+- **Credit Reduction**: Automatically refreshes profile to show updated credits
+- **No Return Value**: Frontend doesn't receive payout phase information
+
+### Win Submission
+- **Auto-Detection**: ChatArea automatically submits wins when `isWinning: true` detected
+- **Chat Log Format**: Converts to prompt/response pairs for backend storage
+- **State Updates**: Refreshes game state and profile after win processing
+
+## Security & Game Integrity
+- **Payout Phase Hidden**: Frontend never receives or displays payout phase status
+- **Backend Control**: All game logic and win validation happens server-side
+- **Clean State**: Users cannot game the system by knowing when winning is possible

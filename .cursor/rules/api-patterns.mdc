@@ -1,0 +1,79 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# API Integration Patterns
+
+## Type-Safe API Design
+
+### Schema Synchronization
+- **Backend Models**: Define in [backend/app/schemas/game.py](mdc:backend/app/schemas/game.py) using Pydantic
+- **Frontend Types**: Mirror exactly in [frontend/src/types.ts](mdc:frontend/src/types.ts) using TypeScript interfaces
+- **UUID Handling**: Backend UUIDs become `string` type in TypeScript
+- **Optional Fields**: Use `| null | undefined` for optional Pydantic fields
+
+### API Function Structure
+All API functions in [frontend/src/api.ts](mdc:frontend/src/api.ts) follow this pattern:
+
+```typescript
+export async function functionName(params): Promise<ResponseType> {
+  return apiCall<ResponseType>('/api/v1/endpoint', {
+    method: 'POST', // if needed
+    body: JSON.stringify(data), // if needed
+  });
+}
+```
+
+## Authentication Integration
+
+### Supabase Session Handling
+- **Token Source**: Always use `supabase.auth.getSession()` for current token
+- **Automatic Headers**: API module automatically adds `Authorization` header when session exists
+- **Error Handling**: Graceful fallback when no session available
+
+### Public vs Authenticated Endpoints
+- **Public**: `getGameState()`, `getCreditPacks()` - work without authentication
+- **Authenticated**: `getMyProfile()`, `logAttempt()`, `handleWin()` - require session
+
+## Data Flow Patterns
+
+### Loading States Management
+Every data operation should have corresponding loading state:
+- `isGameStateLoading`, `isProfileLoading`, `isCreditPacksLoading`
+- Set to `true` at start, `false` in finally block
+- Used by components for loading indicators
+
+### Error Handling Strategy
+- **Catch All Errors**: Never let API calls throw unhandled errors
+- **Store Error State**: Save error messages in state for UI display
+- **User-Friendly Messages**: Convert technical errors to readable format
+
+### Data Refresh Patterns
+- **Profile Refresh**: Always refresh after credit-affecting operations (purchase, attempt)
+- **Game State Refresh**: Refresh after game-changing operations (win submission)
+- **Parallel Refresh**: Use `Promise.all()` for multiple refreshes
+
+## Component Integration Guidelines
+
+### Prop Patterns
+Components receiving backend data should follow this pattern:
+```typescript
+interface ComponentProps {
+  // Data
+  profile: ProfileResponse | null;
+  gameState: GameStateResponse | null;
+  
+  // Loading states
+  isProfileLoading?: boolean;
+  isGameStateLoading?: boolean;
+  
+  // Actions
+  onDataAction?: (param: string) => Promise<any>;
+}
+```
+
+### State Updates
+- **Immediate UI Updates**: Show loading states immediately
+- **Optimistic Updates**: Update UI before API response when appropriate  
+- **Error Recovery**: Revert optimistic updates on error
